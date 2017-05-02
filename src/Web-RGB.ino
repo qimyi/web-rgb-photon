@@ -23,11 +23,15 @@
  unsigned long timeElapsed;
 
 uint8_t leds[PIXEL_COUNT][4];
+unsigned long loopCounter;
+uint16_t offset;
 
  void setup() {
    Particle.function("led",ledToggle);
    Particle.function("setColor", setColor);
    Particle.function("setLedColor", setIndexColor);
+   Particle.function("rotateLeft", rotateLeft);
+   Particle.function("rotateRight", rotateRight);
 
    strip.begin();
    strip.show(); // Initialize all pixels to 'off'
@@ -36,17 +40,19 @@ uint8_t leds[PIXEL_COUNT][4];
 
  void loop() {
    double angle = 2 * M_PI * 0.5 * millis() / 1000;
-   /*Serial.print("Time: ");*/
-   timeElapsed = millis();
-   //prints time since program started
-   /*Serial.print(timeElapsed);*/
-   /*Serial.print(" sin(t): ");*/
-   int brightness = (int) (255 * (sin(angle) + 1) / 2);
-   /*Serial.println(brightness);*/
+
+   /*int brightness = (int) (255 * (sin(angle) + 1) / 2);*/
+
+   int brightness = 255;
+
+   // rotate every second (60 cycles)
+   /*if (++loopCounter%60 == 0) {
+     offset++;
+   }*/
 
    uint16_t j;
    for(j=0; j<strip.numPixels(); j++) {
-     strip.setColorDimmed(j, leds[j][0], leds[j][1], leds[j][2], brightness);
+     strip.setColorDimmed((j + getNormalizedOffset())%strip.numPixels(), leds[j][0], leds[j][1], leds[j][2], leds[j][3]);
      /*leds[j][0] = colors[0];
      leds[j][1] = colors[1];
      leds[j][2] = colors[2];
@@ -57,6 +63,21 @@ uint8_t leds[PIXEL_COUNT][4];
    strip.show();
    // wait a second so as not to send massive amounts of data
    delay(16);
+}
+
+ int rotateLeft(String command) {
+   offset--;
+   return 0;
+ }
+
+ int rotateRight(String command) {
+   offset++;
+   return 0;
+ }
+
+ uint16_t getNormalizedOffset(void) {
+   uint16_t normalizedOffset = offset % PIXEL_COUNT;
+   return normalizedOffset >= 0 ? normalizedOffset : PIXEL_COUNT + normalizedOffset;
  }
 
  void getRGBArrayFromString(String rgb) {
@@ -90,12 +111,11 @@ uint8_t leds[PIXEL_COUNT][4];
 
  int ledToggle(String command) {
    if (command=="on") {
-       strip.show();
+       turnOnAll();
        return 1;
      }
      else if (command=="off") {
-       strip.clear();
-       strip.show();
+       turnOffAll();
        return 0;
      }
      else {
@@ -114,3 +134,16 @@ uint8_t leds[PIXEL_COUNT][4];
    strip.show();
    return 0;
  }
+
+// turn off LEDs but remember the colour
+void turnOffAll(void) {
+  for(uint16_t j=0; j<strip.numPixels(); j++) {
+    leds[j][3] = 0;
+  }
+}
+
+void turnOnAll(void) {
+  for(uint16_t j=0; j<strip.numPixels(); j++) {
+    leds[j][3] = 255;
+  }
+}
